@@ -16,9 +16,46 @@ st.warning('Yalnızca eğitim ve araştırma amaçlıdır. Klinik tanı, hasta t
 # This app is intended for an educational demo, not a production identity service.
 # Store credential hashes in Streamlit's encrypted Secrets management, never in Git.
 try:
-    users = st.secrets['users']
+    users = st.secrets["users"]
 except (KeyError, FileNotFoundError):
-    st.error('Kullanıcı kimlik doğrulaması yapılandırılmamış. Yönetici Streamlit Secrets ayarlarını tamamlamalı.')
+    users = None
+
+if users is None:
+    import hmac
+    from security import make_hash
+
+    try:
+        setup_key = st.secrets["bootstrap"]["token"]
+    except (KeyError, FileNotFoundError):
+        setup_key = ""
+
+    if not setup_key or len(setup_key) < 32:
+        st.error("Yönetici kurulumu için Secrets ayarları eksik.")
+        st.stop()
+
+    st.subheader("İlk yönetici hesabı kurulumu")
+    with st.form("admin_setup"):
+        entered_key = st.text_input("Kurulum anahtarı", type="password")
+        new_password = st.text_input("Yeni şifre", type="password")
+        repeat_password = st.text_input("Şifre tekrarı", type="password")
+        create = st.form_submit_button("Şifre özeti oluştur")
+
+    if create:
+        if not hmac.compare_digest(entered_key, setup_key):
+            st.error("Kurulum anahtarı hatalı.")
+        elif len(new_password) < 12 or new_password != repeat_password:
+            st.error("Şifreler aynı olmalı ve en az 12 karakter içermeli.")
+        else:
+            st.session_state.admin_hash = make_hash(new_password)
+
+    if "admin_hash" in st.session_state:
+        st.success("Şifre özeti hazır.")
+        st.code(
+            '[users.ceyhun]\nrole = "admin"\npassword_hash = "'
+            + st.session_state.admin_hash + '"',
+            language="toml"
+        )
+        st.info("Bu metni yalnızca Streamlit Secrets içine kaydedin.")
     st.stop()
 
 if 'authenticated_user' not in st.session_state:
