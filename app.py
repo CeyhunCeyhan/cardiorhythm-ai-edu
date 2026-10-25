@@ -150,3 +150,21 @@ try:
         st.info('Yönetici modu: kullanıcılar şimdilik Streamlit Secrets üzerinden yönetilir. Yönetim paneli sonraki sürümde.')
 except Exception:
     st.error('Örnek EKG verisi yüklenemedi veya işlenemedi. İnternet bağlantısını ve uygulama günlüklerini kontrol edin.')
+# Full-record validation — administrator only
+if identity['role'] == 'admin':
+    st.divider()
+    st.subheader('Tam kayıt validasyonu · v0.3')
+    st.caption('MIT-BIH kayıt 100 · MLII · yaklaşık 30 dakika')
+    if st.button('Tüm kaydı analiz et', type='primary'):
+        from batch_validation import validate_record
+        try:
+            with st.spinner('Tam kayıt analiz ediliyor…'):
+                summary = validate_record('100', 'MLII')
+            c1, c2 = st.columns(2)
+            c1.metric('Sensitivite', f"{summary['sensitivity']:.2%}")
+            c2.metric('PPV', f"{summary['ppv']:.2%}")
+            st.write(f"TP: {summary['TP']} | FP: {summary['FP']} | FN: {summary['FN']}")
+            st.write(f"Ortalama mutlak zamanlama hatası: {summary['mean_absolute_error_ms']:.2f} ms")
+            st.warning('Ön analiz: pencere sınırı etkileri henüz giderilmedi. Klinik validasyon değildir.')
+        except Exception as exc:
+            st.error(f'Tam kayıt analizi başarısız: {type(exc).__name__}: {exc}')
