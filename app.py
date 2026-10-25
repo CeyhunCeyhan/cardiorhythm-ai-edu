@@ -170,3 +170,40 @@ if identity['role'] == 'admin':
             st.warning('Ön analiz: pencere sınırı etkileri henüz giderilmedi. Klinik validasyon değildir.')
         except Exception as exc:
             st.error(f'Tam kayıt analizi başarısız: {type(exc).__name__}: {exc}')
+# Administrator-only ECG error inspection
+if identity['role'] == 'admin':
+    with st.expander('FP incelemesi · 1518–1522 saniye'):
+        if st.button('EKG inceleme grafiğini göster'):
+            import numpy as np
+            import wfdb
+            from validation import reference_beats
+
+            with st.spinner('İlgili EKG bölgesi yükleniyor…'):
+                fs = 360
+                start_sample = 1517 * fs
+                end_sample = 1523 * fs
+                rec = wfdb.rdrecord('100', pn_dir='mitdb',
+                                    sampfrom=start_sample,
+                                    sampto=end_sample, channels=[0])
+                ann = wfdb.rdann('100', 'atr', pn_dir='mitdb',
+                                 sampfrom=start_sample,
+                                 sampto=end_sample, shift_samps=False)
+
+            times = 1517 + np.arange(len(rec.p_signal)) / fs
+            fig_fp = go.Figure()
+            fig_fp.add_trace(go.Scatter(
+                x=times, y=rec.p_signal[:, 0],
+                mode='lines', name='MLII EKG'))
+            for sample in reference_beats(ann, start_sample, end_sample):
+                fig_fp.add_vline(x=sample / fs, line_color='green',
+                                 line_dash='dash')
+            for t_fp in [1519.139, 1520.022]:
+                fig_fp.add_vline(x=t_fp, line_color='red', line_dash='dot')
+            fig_fp.add_vline(x=1520, line_color='orange', line_width=3)
+            fig_fp.update_layout(height=450,
+                                 xaxis=dict(range=[1518, 1522]),
+                                 xaxis_title='Kayıt zamanı (s)',
+                                 yaxis_title='Amplitüd (mV)')
+            st.plotly_chart(fig_fp, use_container_width=True)
+            st.caption('Yeşil: referans atım · Kırmızı: FP · Turuncu: pencere sınırı')
+            st.warning('Araştırma amaçlıdır; klinik tanı için kullanılmaz.')
