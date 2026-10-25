@@ -144,7 +144,7 @@ try:
         st.write(f"TP: {result['TP']} | FP: {result['FP']} | FN: {result['FN']}")
         st.caption('MIT-BIH kayıt 100, seçilen pencere; ±150 ms tolerans. Bu sonuç tüm veri tabanının validasyonu değildir.')
     except Exception as exc:
-        st.warning(f'Referans validasyonu tamamlanamadı: {type(exc).__name__}
+                st.warning(f'Referans validasyonu tamamlanamadı: {type(exc).__name__}')
     st.download_button('RR aralıklarını CSV indir', pd.DataFrame({'RR_s': rr}).to_csv(index=False), 'rr_intervals.csv', 'text/csv')
     if identity['role'] == 'admin':
         st.info('Yönetici modu: kullanıcılar şimdilik Streamlit Secrets üzerinden yönetilir. Yönetim paneli sonraki sürümde.')
