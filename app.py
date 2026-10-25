@@ -165,6 +165,8 @@ if identity['role'] == 'admin':
             c2.metric('PPV', f"{summary['ppv']:.2%}")
             st.write(f"TP: {summary['TP']} | FP: {summary['FP']} | FN: {summary['FN']}")
             st.write(f"Ortalama mutlak zamanlama hatası: {summary['mean_absolute_error_ms']:.2f} ms")
+            st.write("Yalancı pozitif zamanları (s):", summary["fp_times_s"])
+            st.write("Kaçırılan atım zamanları (s):", summary["fn_times_s"])
             st.warning('Ön analiz: pencere sınırı etkileri henüz giderilmedi. Klinik validasyon değildir.')
         except Exception as exc:
             st.error(f'Tam kayıt analizi başarısız: {type(exc).__name__}: {exc}')
