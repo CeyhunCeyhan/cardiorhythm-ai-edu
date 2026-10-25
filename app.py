@@ -7,7 +7,7 @@ import streamlit as st
 import wfdb
 from scipy.signal import butter, find_peaks, sosfiltfilt
 from security import verify_password
-
+from validation import reference_beats, evaluate_r_peaks
 st.set_page_config(page_title='CardioRhythm AI | Eğitim', page_icon='🫀', layout='wide')
 st.title('CardioRhythm AI')
 st.caption('EKG ve aritmi eğitimi · Deneysel prototip v0.2')
@@ -131,7 +131,21 @@ try:
     fig.add_trace(go.Scatter(x=t[peaks], y=segment[peaks], name='Aday R tepeleri', mode='markers'))
     fig.update_layout(height=450, xaxis_title='Zaman (s)', yaxis_title='Genlik (mV)')
     st.plotly_chart(fig, use_container_width=True)
-    st.caption('R tepesi tespiti henüz referans anotasyonlarıyla doğrulanmadı. RR düzensizliği AF tanısı değildir.')
+    st.caption('RR düzensizliği tek başına AF tanısı değildir.')
+    st.subheader('MIT-BIH referans validasyonu')
+    try:
+        annotation = wfdb.rdann('100', 'atr', pn_dir='mitdb')
+        reference = reference_beats(annotation, a, b)
+        result = evaluate_r_peaks(peaks + a, reference, fs, tolerance_ms=150)
+        v1, v2, v3 = st.columns(3)
+        v1.metric('Sensitivite', f"{result['sensitivity']:.1%}")
+        v2.metric('PPV', f"{result['ppv']:.1%}")
+        v3.metric('Ortalama mutlak zamanlama hatası', f"{result['mean_absolute_error_ms']:.1f} ms")
+        st.write(f"TP: {result['TP']} | FP: {result['FP']} | FN: {result['FN']}")
+        st.caption('MIT-BIH kayıt 100, seçilen pencere; ±150 ms tolerans. Bu sonuç tüm veri tabanının validasyonu değildir.')
+    except Exception as exc:
+        st.warning(f'Referans validasyonu tamamlanamadı: {type(exc).__name__}')
+')
     st.download_button('RR aralıklarını CSV indir', pd.DataFrame({'RR_s': rr}).to_csv(index=False), 'rr_intervals.csv', 'text/csv')
     if identity['role'] == 'admin':
         st.info('Yönetici modu: kullanıcılar şimdilik Streamlit Secrets üzerinden yönetilir. Yönetim paneli sonraki sürümde.')
