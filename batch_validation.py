@@ -32,8 +32,21 @@ def match_peaks(detected, reference, fs, tolerance_ms=150):
 
 
 def validate_record(record_id="100", lead_name="MLII", window_seconds=20):
-    record = wfdb.rdrecord(record_id, pn_dir="mitdb")
-    annotation = wfdb.rdann(record_id, "atr", pn_dir="mitdb")
+    """Preserve the existing application interface and baseline behavior."""
+    return validate_record_with_context(record_id, lead_name, window_seconds,
+                                        context_seconds=0, pn_dir="mitdb")
+
+
+def validate_record_with_context(record_id="100", lead_name="MLII", window_seconds=20,
+                                 context_seconds=3, pn_dir="mitdb"):
+    """Validate with optional context; zero preserves the original algorithm.
+
+    Context is clipped at the record edges. Filtering and peak selection use
+    the extended segment; only detections in [start, end) are counted.
+    The prominence threshold remains based on the central analysis window.
+    """
+    record = wfdb.rdrecord(record_id, pn_dir=pn_dir)
+    annotation = wfdb.rdann(record_id, "atr", pn_dir=pn_dir)
     fs = float(record.fs)
 
     if lead_name not in record.sig_name:
@@ -43,6 +56,9 @@ def validate_record(record_id="100", lead_name="MLII", window_seconds=20):
     window_samples = int(window_seconds * fs)
     if window_samples < int(fs):
         raise ValueError("Window must be at least one second")
+    if not np.isfinite(context_seconds) or context_seconds < 0:
+        raise ValueError("Context must be a nonnegative finite duration")
+    context_samples = int(context_seconds * fs)
 
     sos = butter(3, [5, 18], btype="bandpass", fs=fs, output="sos")
     all_fp, all_fn, all_errors = [], [], []
@@ -50,19 +66,23 @@ def validate_record(record_id="100", lead_name="MLII", window_seconds=20):
 
     for start in range(0, len(signal), window_samples):
         end = min(start + window_samples, len(signal))
-        segment = signal[start:end]
+        context_start = max(0, start - context_samples)
+        context_end = min(len(signal), end + context_samples)
+        segment = signal[context_start:context_end]
 
-        if len(segment) < max(30, int(fs)):
+        if end - start < max(30, int(fs)):
             all_fn.extend(map(int, reference_beats(annotation, start, end)))
             continue
 
         filtered = sosfiltfilt(sos, segment)
+        center = filtered[start - context_start:end - context_start]
         peaks, _ = find_peaks(
             np.abs(filtered),
             distance=max(1, int(0.25 * fs)),
-            prominence=max(np.std(filtered) * 1.1, 1e-8),
+            prominence=max(np.std(center) * 1.1, 1e-8),
         )
-        detected = peaks + start
+        detected = peaks + context_start
+        detected = detected[(detected >= start) & (detected < end)]
         reference = reference_beats(annotation, start, end)
         fp, fn, errors = match_peaks(detected, reference, fs)
         all_fp.extend(fp)
@@ -89,3 +109,4 @@ def validate_record(record_id="100", lead_name="MLII", window_seconds=20):
 
 if __name__ == "__main__":
     print(validate_record())
+

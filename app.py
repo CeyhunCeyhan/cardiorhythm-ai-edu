@@ -156,18 +156,19 @@ if identity['role'] == 'admin':
     st.subheader('Tam kayıt validasyonu · v0.3')
     st.caption('MIT-BIH kayıt 100 · MLII · yaklaşık 30 dakika')
     if st.button('Tüm kaydı analiz et', type='primary'):
-        from batch_validation import validate_record
         try:
+            from batch_validation import validate_record_with_context
             with st.spinner('Tam kayıt analiz ediliyor…'):
-                summary = validate_record('100', 'MLII')
+                summary = validate_record_with_context('100', 'MLII', context_seconds=3)
             c1, c2 = st.columns(2)
             c1.metric('Sensitivite', f"{summary['sensitivity']:.2%}")
             c2.metric('PPV', f"{summary['ppv']:.2%}")
             st.write(f"TP: {summary['TP']} | FP: {summary['FP']} | FN: {summary['FN']}")
             st.write(f"Ortalama mutlak zamanlama hatası: {summary['mean_absolute_error_ms']:.2f} ms")
+            st.session_state['full_record_validation'] = summary
             st.write("Yalancı pozitif zamanları (s):", summary["fp_times_s"])
             st.write("Kaçırılan atım zamanları (s):", summary["fn_times_s"])
-            st.warning('Ön analiz: pencere sınırı etkileri henüz giderilmedi. Klinik validasyon değildir.')
+            st.caption('20 saniyelik analiz pencereleri, her iki yanda en fazla 3 saniye bağlam; yalnızca merkez pencere sayılır. Klinik validasyon değildir.')
         except Exception as exc:
             st.error(f'Tam kayıt analizi başarısız: {type(exc).__name__}: {exc}')
 # Administrator-only ECG error inspection
@@ -197,7 +198,10 @@ if identity['role'] == 'admin':
             for sample in reference_beats(ann, start_sample, end_sample):
                 fig_fp.add_vline(x=sample / fs, line_color='green',
                                  line_dash='dash')
-            for t_fp in [1519.139, 1520.022]:
+            summary = st.session_state.get('full_record_validation')
+            if summary is None:
+                st.info('Güncel FP işaretleri için önce tam kayıt analizini çalıştırın.')
+            for t_fp in (summary['fp_times_s'] if summary else []):
                 fig_fp.add_vline(x=t_fp, line_color='red', line_dash='dot')
             fig_fp.add_vline(x=1520, line_color='orange', line_width=3)
             fig_fp.update_layout(height=450,
@@ -207,3 +211,4 @@ if identity['role'] == 'admin':
             st.plotly_chart(fig_fp, use_container_width=True)
             st.caption('Yeşil: referans atım · Kırmızı: FP · Turuncu: pencere sınırı')
             st.warning('Araştırma amaçlıdır; klinik tanı için kullanılmaz.')
+
