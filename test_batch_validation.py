@@ -47,6 +47,17 @@ class WindowTests(unittest.TestCase):
             batch.validate_record()
         self.assertEqual(lengths, [2000, 2000, 250])
 
+    def test_boundary_pair_matches_once(self):
+        record = SimpleNamespace(fs=100, sig_name=['MLII'], p_signal=np.zeros((4000,1)))
+        annotation = SimpleNamespace(sample=np.array([1999]), symbol=['N'])
+        for global_match, expected in [(False, (0,1,1)), (True, (1,0,0))]:
+            with patch.object(batch.wfdb, 'rdrecord', return_value=record), \
+                 patch.object(batch.wfdb, 'rdann', return_value=annotation), \
+                 patch.object(batch, 'sosfiltfilt', side_effect=lambda sos, x:x), \
+                 patch.object(batch, 'find_peaks', side_effect=[(np.array([],dtype=int),{}),(np.array([300]),{})]):
+                result = batch.validate_record_with_context(match_across_windows=global_match)
+            self.assertEqual(tuple(result[k] for k in ['TP','FP','FN']), expected)
+
     def test_original_signature(self):
         sig = inspect.signature(batch.validate_record)
         self.assertEqual(str(sig), "(record_id='100', lead_name='MLII', window_seconds=20)")
