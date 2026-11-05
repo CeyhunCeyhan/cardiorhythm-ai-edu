@@ -9,6 +9,6 @@ if __name__ == '__main__':
     parser.add_argument('record', nargs='?', default=str(Path(__file__).resolve().parent / '100'))
     record = parser.parse_args().record
     print(json.dumps({
-        'baseline': validate_record_with_context(record, 'MLII', context_seconds=0, pn_dir=None),
+        'baseline': validate_record_with_context(record, 'MLII', context_seconds=0, pn_dir=None, match_across_windows=False),
         'context_3s': validate_record_with_context(record, 'MLII', context_seconds=3, pn_dir=None),
     }, indent=2, allow_nan=False))

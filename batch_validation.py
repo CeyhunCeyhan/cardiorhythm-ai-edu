@@ -34,13 +34,14 @@ def match_peaks(detected, reference, fs, tolerance_ms=150):
 def validate_record(record_id="100", lead_name="MLII", window_seconds=20):
     """Preserve the existing application interface and baseline behavior."""
     return validate_record_with_context(record_id, lead_name, window_seconds,
-                                        context_seconds=0, pn_dir="mitdb")
+                                        context_seconds=0, pn_dir="mitdb", match_across_windows=False)
 
 
 def validate_record_with_context(record_id="100", lead_name="MLII", window_seconds=20,
-                                 context_seconds=3, pn_dir="mitdb"):
-    """Validate with optional context; zero preserves the original algorithm.
+                                 context_seconds=3, pn_dir="mitdb", *, match_across_windows=True):
+    """Validate with optional context and full-record one-to-one matching.
 
+    Matching spans the full record by default; legacy wrapper keeps window matching.
     Context is clipped at the record edges. Filtering and peak selection use
     the extended segment; only detections in [start, end) are counted.
     The prominence threshold remains based on the central analysis window.
@@ -63,6 +64,7 @@ def validate_record_with_context(record_id="100", lead_name="MLII", window_secon
     sos = butter(3, [5, 18], btype="bandpass", fs=fs, output="sos")
     all_fp, all_fn, all_errors = [], [], []
     tp = 0
+    all_detected = []
 
     for start in range(0, len(signal), window_samples):
         end = min(start + window_samples, len(signal))
@@ -83,12 +85,18 @@ def validate_record_with_context(record_id="100", lead_name="MLII", window_secon
         )
         detected = peaks + context_start
         detected = detected[(detected >= start) & (detected < end)]
+        all_detected.extend(map(int, detected))
         reference = reference_beats(annotation, start, end)
         fp, fn, errors = match_peaks(detected, reference, fs)
         all_fp.extend(fp)
         all_fn.extend(fn)
         all_errors.extend(errors)
         tp += len(errors)
+
+    if match_across_windows:
+        all_fp, all_fn, all_errors = match_peaks(
+            all_detected, reference_beats(annotation, 0, len(signal)), fs)
+        tp = len(all_errors)
 
     fp_count, fn_count = len(all_fp), len(all_fn)
     return {
