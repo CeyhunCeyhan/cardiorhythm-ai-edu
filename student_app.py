@@ -63,22 +63,33 @@ start=st.slider('Şeridin başlangıcı (s)',0,10,0,key='start_'+case_id)
 mask=(t>=start)&(t<start+6)
 fig=go.Figure(go.Scatter(x=t[mask],y=y[mask],mode='lines',line=dict(color='#17324D',width=1.5),name='Sentetik sinyal'))
 fig.update_layout(height=320,margin=dict(l=15,r=10,t=15,b=30),xaxis_title='Saniye',yaxis_title='mV',dragmode='pan',showlegend=False)
-fig.update_xaxes(dtick=.2,gridcolor='#efd5d5',range=[start,start+6])
+fig.update_xaxes(dtick=1,tickangle=0,minor=dict(dtick=.2,showgrid=True,gridcolor='#f7eeee'),gridcolor='#efd5d5',range=[start,start+6])
 fig.update_yaxes(gridcolor='#efd5d5',range=[-.7,1.5])
 st.plotly_chart(fig,use_container_width=True,config={'displaylogo':False,'scrollZoom':False})
 st.caption('6 saniyelik görünüm · Grafik araçlarıyla yakınlaştırabilirsiniz. Ekran boyutu kâğıt kalibrasyonu değildir.')
 with st.form('answer_'+case_id):
  answer=st.radio('16 saniyelik alıştırmanın tamamında hangi özellik öne çıkıyor?',OPTIONS,index=None,key='choice_'+case_id)
+ uncertain=st.checkbox('Güvenilir ölçüm yapamıyorum',key='uncertain_'+case_id) if case_id=='noise' else False
  estimate=st.number_input('16 saniyelik kaydın ortalama hızı için tahmininiz (/dk)',min_value=0,max_value=300,value=0,key='rate_'+case_id)
  submitted=st.form_submit_button('Yanıtımı kontrol et',use_container_width=True)
 if submitted:
  if answer is None:st.warning('Önce bir seçenek işaretleyin.')
  else:
-  answers=dict(st.session_state.get('answers',{}));answers[case_id]={'answer':answer,'rate':estimate};st.session_state.answers=answers
+  answers=dict(st.session_state.get('answers',{}));answers[case_id]={'answer':answer,'rate':None if uncertain else estimate,'rate_uncertain':uncertain};st.session_state.answers=answers
 saved=st.session_state.get('answers',{}).get(case_id)
 if saved:
  if saved['answer']==case['answer']:st.success('Bu alıştırmanın hedeflediği özelliği seçtiniz.')
  else:st.info('Birlikte karşılaştıralım: '+case['answer'])
+ reference_rate=float(60/np.mean(np.diff(beats)))
+ st.write('**Hız tahmini geri bildirimi**')
+ if saved.get('rate_uncertain'):
+  st.info('Güvenilir ölçüm yapamadığınızı belirttiniz. Gürültülü bölümü temiz bölümlerle karşılaştırın; gerekirse daha kaliteli bir kayıt isteyin. Sayısal tahmininiz değerlendirilmedi.')
+ elif not saved.get('rate'):
+  st.warning('Hız tahmini yanıtlanmadı. Özellik seçimi ile hız tahmini ayrı değerlendirilir.')
+ else:
+  difference=float(saved['rate'])-reference_rate
+  st.write(f"Tahmininiz: {saved['rate']} /dk · Referans: {reference_rate:.1f} /dk · Fark: {difference:+.1f} /dk.")
+  st.caption('Referans hız = 60 / ortalama RR. Şeridi kaydırarak kaydın tamamını inceleyin.')
  st.write(case['note'])
  st.metric('Üretim zamanlarından hesaplanan ortalama hız',f'{60/np.mean(np.diff(beats)):.1f} /dk')
  st.caption('Bu değer bilinen sentetik atım zamanlarından hesaplanır; otomatik R-tepe analizi sonucu değildir.')
