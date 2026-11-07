@@ -2,7 +2,7 @@
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src blob: data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <style>
-body{font:16px system-ui;color:#17324d;margin:8px}button,select,input,textarea{font:inherit;max-width:100%;box-sizing:border-box}button{padding:12px;margin:4px;border:1px solid #aabac5;border-radius:8px;background:#f0f6f8;color:#17324d}button:disabled{opacity:.45}label{display:block;margin:14px 0}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}textarea{width:100%;padding:12px}#viewport{overflow:auto;max-height:520px;border:1px solid #aabac5;background:#eee}canvas{display:block;max-width:none;touch-action:none}#status{min-height:24px;color:#9b2335}.note{background:#eef6fa;padding:12px;border-radius:8px} [hidden]{display:none!important}
+body{font:16px system-ui;color:#17324d;margin:8px}button,select,input,textarea{font:inherit;max-width:100%;box-sizing:border-box}button{padding:12px;margin:4px;border:1px solid #aabac5;border-radius:8px;background:#f0f6f8;color:#17324d}button[aria-pressed="true"]{background:#17324d;color:white}button:disabled{opacity:.45}label{display:block;margin:14px 0}input[type=checkbox]{width:20px;height:20px;vertical-align:middle}textarea{width:100%;padding:12px}#viewport{overflow:auto;max-height:520px;border:1px solid #aabac5;background:#eee}canvas{display:block;max-width:none;touch-action:auto}#status{min-height:24px;color:#9b2335}.note{background:#eef6fa;padding:12px;border-radius:8px} [hidden]{display:none!important}
 </style></head><body>
 <h3>12 derivasyonlu EKG fotoğrafı inceleme</h3>
 <p class="note">Fotoğraf yalnızca bu tarayıcıda açılır; uygulama sunucusuna gönderilmez. Otomatik tanı veya ölçüm yapılmaz. Kimliksizleştirme otomatik değildir.</p>
@@ -12,7 +12,9 @@ body{font:16px system-ui;color:#17324d;margin:8px}button,select,input,textarea{f
 <p>HEIC açılmazsa telefonda JPEG olarak dışa aktarın. Yeni servis veya dönüştürme sitesine göndermeyin.</p>
 <div id="status" role="status" aria-live="polite"></div>
 <section id="workspace" hidden>
-<p id="instructions">Görselin tamamını kontrol edin. Kalan kimlik alanlarını parmağınızla veya fareyle dikdörtgen çizerek siyaha kapatın. Yanlış kapatırsanız fotoğrafı yeniden seçin.</p>
+<p id="instructions">Varsayılan hareket kaydırmadır. Yalnızca kimlik alanı kapatmak için “Kimlik alanını kapat” düğmesini seçin. Siyah alan kalıcıdır; yanlış kapatırsanız fotoğrafı yeniden seçin.</p>
+<div><button id="pan" type="button" aria-pressed="true">Kaydır / incele</button><button id="mask" type="button" aria-pressed="false">Kimlik alanını kapat</button></div>
+<p id="toolStatus" role="status" aria-live="polite"></p>
 <div><button id="rotate" type="button">90° döndür</button><label>Yakınlaştırma <select id="zoom"><option value="1">Ekrana sığdır</option><option value="2">2×</option><option value="4">4×</option></select></label></div>
 <div id="viewport"><canvas id="canvas" aria-label="EKG fotoğrafı"></canvas></div>
 <label id="reviewLabel"><input id="reviewed" type="checkbox"> Tüm görseli kontrol ettim; hasta kimlik bilgisi kalmadı.</label>
@@ -24,11 +26,21 @@ body{font:16px system-ui;color:#17324d;margin:8px}button,select,input,textarea{f
 <script>
 'use strict';
 const $=id=>document.getElementById(id), canvas=$('canvas'), ctx=canvas.getContext('2d');
-let phase='empty', generation=0, point=null, pendingUrl=null;
+let tool='pan', phase='empty', generation=0, point=null, pendingUrl=null;
 function status(t){$('status').textContent=t;}
-function fit(){const w=Math.max(200,$('viewport').clientWidth);canvas.style.width=(w*Number($('zoom').value))+'px';canvas.style.height='auto';canvas.style.touchAction=phase==='review'?'none':'auto';}
+function fit(){const w=Math.max(200,$('viewport').clientWidth);canvas.style.width=(w*Number($('zoom').value))+'px';canvas.style.height='auto';canvas.style.touchAction=tool==='mask'?'none':'auto';}
+function setTool(next){
+ tool=next==='mask'&&phase==='review'?'mask':'pan';point=null;
+ $('pan').setAttribute('aria-pressed',String(tool==='pan'));
+ $('mask').setAttribute('aria-pressed',String(tool==='mask'));
+ $('mask').disabled=phase!=='review';
+ $('toolStatus').textContent=tool==='mask'?'KAPATMA MODU: Sürüklediğiniz alan siyah olur. Tek kutudan sonra kaydırmaya dönülür.':'KAYDIRMA MODU: Büyütüp parmağınızla kaydırın; siyah alan çizilmez.';
+ fit();
+}
+$('pan').onclick=()=>setTool('pan');
+$('mask').onclick=()=>setTool('mask');
 function revoke(){if(pendingUrl){URL.revokeObjectURL(pendingUrl);pendingUrl=null;}}
-function clear(){generation++;revoke();phase='empty';point=null;canvas.width=1;canvas.height=1;ctx.clearRect(0,0,1,1);$('file').value='';$('comment').value='';$('reviewed').checked=false;$('confirm').disabled=true;$('workspace').hidden=true;$('notes').hidden=true;$('zoom').value='1';status('');}
+function clear(){generation++;revoke();phase='empty';tool='pan';point=null;canvas.width=1;canvas.height=1;ctx.clearRect(0,0,1,1);$('file').value='';$('comment').value='';$('reviewed').checked=false;$('confirm').disabled=true;$('workspace').hidden=true;$('notes').hidden=true;$('zoom').value='1';status('');}
 $('prepared').onchange=()=>{clear();$('file').disabled=!$('prepared').checked;};
 $('clear').onclick=clear;
 $('file').onchange=async()=>{
@@ -40,17 +52,17 @@ $('file').onchange=async()=>{
   if(current!==generation)return;
   if(!img.naturalWidth||img.naturalWidth*img.naturalHeight>24000000)throw Error('size');
   canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;ctx.drawImage(img,0,0);img.src='';
-  phase='review';$('workspace').hidden=false;$('reviewLabel').hidden=false;$('confirm').hidden=false;$('instructions').hidden=false;fit();
+  phase='review';$('workspace').hidden=false;$('reviewLabel').hidden=false;$('confirm').hidden=false;$('instructions').hidden=false;setTool('pan');
   status('Yerel önizleme: kalan kimlik alanlarını kapatıp kontrolü onaylayın.');
  }catch(e){if(current===generation){clear();status('Fotoğraf açılamadı. En fazla 24 megapiksel geçerli JPEG/PNG/WebP kullanın.');}}
  finally{URL.revokeObjectURL(url);if(pendingUrl===url)pendingUrl=null;}
 };
 function position(e){const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*canvas.width/r.width)),y:Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*canvas.height/r.height))};}
-canvas.onpointerdown=e=>{if(phase!=='review')return;point=position(e);canvas.setPointerCapture(e.pointerId);};
-canvas.onpointerup=e=>{if(!point||phase!=='review')return;const q=position(e);ctx.fillStyle='#000';ctx.fillRect(Math.min(point.x,q.x),Math.min(point.y,q.y),Math.max(1,Math.abs(q.x-point.x)),Math.max(1,Math.abs(q.y-point.y)));point=null;$('reviewed').checked=false;$('confirm').disabled=true;};
+canvas.onpointerdown=e=>{if(phase!=='review'||tool!=='mask')return;point=position(e);canvas.setPointerCapture(e.pointerId);};
+canvas.onpointerup=e=>{if(!point||phase!=='review'||tool!=='mask')return;const q=position(e);if(Math.abs(q.x-point.x)<3||Math.abs(q.y-point.y)<3){point=null;return;}ctx.fillStyle='#000';ctx.fillRect(Math.min(point.x,q.x),Math.min(point.y,q.y),Math.max(1,Math.abs(q.x-point.x)),Math.max(1,Math.abs(q.y-point.y)));point=null;$('reviewed').checked=false;$('confirm').disabled=true;setTool('pan');};
 canvas.onpointercancel=()=>{point=null;};
 $('reviewed').onchange=()=>{$('confirm').disabled=!$('reviewed').checked;};
-$('confirm').onclick=()=>{if(phase!=='review'||!$('reviewed').checked)return;phase='view';$('notes').hidden=false;$('reviewLabel').hidden=true;$('confirm').hidden=true;$('instructions').hidden=true;fit();status('Kimliksiz olduğunu onayladığınız görsel. Büyütüp kaydırarak inceleyin.');};
-$('rotate').onclick=()=>{if(phase==='empty')return;const temp=document.createElement('canvas');temp.width=canvas.height;temp.height=canvas.width;const t=temp.getContext('2d');t.translate(temp.width,0);t.rotate(Math.PI/2);t.drawImage(canvas,0,0);canvas.width=temp.width;canvas.height=temp.height;ctx.drawImage(temp,0,0);temp.width=1;temp.height=1;fit();};
-$('zoom').onchange=fit;window.addEventListener('resize',()=>{if(phase!=='empty')fit();});window.addEventListener('pagehide',clear);
+$('confirm').onclick=()=>{if(phase!=='review'||!$('reviewed').checked)return;phase='view';$('notes').hidden=false;$('reviewLabel').hidden=true;$('confirm').hidden=true;$('instructions').hidden=true;setTool('pan');status('Kimliksiz olduğunu onayladığınız görsel. Büyütüp kaydırarak inceleyin.');};
+$('rotate').onclick=()=>{if(phase==='empty')return;setTool('pan');const temp=document.createElement('canvas');temp.width=canvas.height;temp.height=canvas.width;const t=temp.getContext('2d');t.translate(temp.width,0);t.rotate(Math.PI/2);t.drawImage(canvas,0,0);canvas.width=temp.width;canvas.height=temp.height;ctx.drawImage(temp,0,0);temp.width=1;temp.height=1;fit();};
+$('zoom').onchange=()=>setTool('pan');window.addEventListener('resize',()=>{if(phase!=='empty')fit();});window.addEventListener('pagehide',clear);
 </script></body></html>

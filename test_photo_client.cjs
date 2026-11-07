@@ -4,7 +4,7 @@ const html=fs.readFileSync(__dirname+'/student_photo.html','utf8');
 const js=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const elements={},fills=[],revoked=[];
 const ctx={drawImage(){},clearRect(){},fillRect(...args){fills.push(args)},translate(){},rotate(){}};
-function element(id){return elements[id]??=( {checked:false,disabled:true,hidden:true,value:id==='zoom'?'1':'',clientWidth:360,width:1,height:1,files:[],style:{},getContext:()=>ctx,getBoundingClientRect:()=>({left:0,top:0,width:360,height:180}),setPointerCapture(){}});}
+function element(id){return elements[id]??=( {checked:false,disabled:true,hidden:true,value:id==='zoom'?'1':'',clientWidth:360,width:1,height:1,files:[],style:{},getContext:()=>ctx,getBoundingClientRect:()=>({left:0,top:0,width:360,height:180}),setPointerCapture(){},setAttribute(k,v){this[k]=v}});}
 const sandbox={document:{getElementById:element,createElement:()=>({width:1,height:1,getContext:()=>ctx})},window:{addEventListener(){}},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:x=>revoked.push(x)},Image:class{naturalWidth=1200;naturalHeight=600;async decode(){}},console};
 vm.createContext(sandbox);vm.runInContext(js,sandbox);
 async function upload(file){element('file').files=[file];await element('file').onchange();}
@@ -15,11 +15,16 @@ async function upload(file){element('file').files=[file];await element('file').o
  await upload({type:'image/jpeg',size:16*1024*1024});assert.equal(element('workspace').hidden,true);
  await upload({type:'image/jpeg',size:100});assert.equal(element('workspace').hidden,false);assert.equal(element('notes').hidden,true);assert.ok(revoked.length);
  element('confirm').onclick();assert.equal(element('notes').hidden,true);
- element('canvas').onpointerdown({clientX:10,clientY:10,pointerId:1});element('canvas').onpointerup({clientX:100,clientY:30});assert.equal(fills.length,1);assert.ok(fills[0][2]>0);
- element('reviewed').checked=true;element('reviewed').onchange();element('confirm').onclick();assert.equal(element('notes').hidden,false);
+ const drag=()=>{element('canvas').onpointerdown({clientX:10,clientY:10,pointerId:1});element('canvas').onpointerup({clientX:100,clientY:30});};
+ drag();assert.equal(fills.length,0);assert.equal(element('canvas').style.touchAction,'auto');
+ element('reviewed').checked=true;element('reviewed').onchange();drag();assert.equal(fills.length,0);
+ element('mask').onclick();assert.equal(element('canvas').style.touchAction,'none');
+ element('canvas').onpointerdown({clientX:10,clientY:10,pointerId:1});element('canvas').onpointerup({clientX:100,clientY:30});assert.equal(fills.length,1);assert.ok(fills[0][2]>0);assert.equal(element('canvas').style.touchAction,'auto');drag();assert.equal(fills.length,1);assert.equal(element('reviewed').checked,false);
+ element('mask').onclick();element('pan').onclick();drag();assert.equal(fills.length,1);
+ element('reviewed').checked=true;element('reviewed').onchange();element('confirm').onclick();assert.equal(element('notes').hidden,false);element('mask').onclick();drag();assert.equal(fills.length,1);assert.equal(element('mask').disabled,true);
  element('rotate').onclick();assert.equal(element('canvas').width,600);assert.equal(element('canvas').height,1200);
  element('zoom').value='4';element('zoom').onchange();assert.equal(element('canvas').style.width,'1440px');
  element('comment').value='education test';element('clear').onclick();assert.equal(element('comment').value,'');assert.equal(element('canvas').width,1);assert.equal(element('workspace').hidden,true);
  await upload({type:'image/png',size:100});element('prepared').checked=false;element('prepared').onchange();assert.equal(element('file').disabled,true);assert.equal(element('workspace').hidden,true);
- console.log('PASS: CSP/no network-storage APIs, consent gate, format/size rejection, local decode/revoke, review gate, masking, rotation, zoom, clear, consent withdrawal (11 checks).');
+ console.log('PASS: CSP/no network-storage APIs, consent gate, format/size rejection, local decode/revoke, review gate, masking, rotation, zoom, clear, consent withdrawal plus default pan, checkbox-only pan, explicit masking, automatic pan return, manual pan and post-confirm masking lock checks.');
 })().catch(e=>{console.error(e);process.exit(1)});
