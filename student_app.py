@@ -9,7 +9,7 @@ from student_access import LoginGuard
 st.set_page_config(page_title='CardioRhythm AI – Student Edition',page_icon='🫀',layout='centered')
 st.title('CardioRhythm AI')
 st.caption('Student Edition · Ders öncesi pilot')
-st.info('Sentetik EKG alıştırmaları · Hasta verisi içermez. Klinik tanı veya tedavi için kullanılmaz.')
+st.info('EKG eğitimi · Klinik tanı veya tedavi için kullanılmaz.')
 
 @st.cache_resource
 def login_guard():return LoginGuard()
@@ -44,6 +44,13 @@ is_admin=identity['role']=='admin'
 st.caption('Eğitici' if is_admin else 'Öğrenci oturumu')
 if st.button('Çıkış yap'):
  reset_session();st.rerun()
+mode=st.radio('Çalışma alanı',['Sentetik alıştırmalar','EKG fotoğrafı inceleme'],horizontal=True,key='workspace_mode')
+if mode=='EKG fotoğrafı inceleme':
+ from pathlib import Path
+ import streamlit.components.v1 as components
+ components.html(Path(__file__).with_name('student_photo.html').read_text(encoding='utf-8'),height=1250,scrolling=True)
+ st.stop()
+st.caption('Bu bölümdeki beş alıştırma sentetiktir; hasta verisi içermez.')
 settings=st.secrets.get('student_edition',{})
 approved=set(settings.get('approved_cases',[])) & set(CASES)
 available=list(CASES) if is_admin else [c for c in CASES if c in approved]
@@ -100,4 +107,4 @@ answers=st.session_state.get('answers',{})
 st.progress(len(set(answers)&set(available))/len(available),text=f'{len(set(answers)&set(available))}/{len(available)} alıştırma yanıtlandı')
 if answers:
  st.download_button('Yanıtlarımı indir',json.dumps(answers,ensure_ascii=False,indent=2),'yanitlarim.json','application/json')
-st.caption('Yanıtlar yalnızca bu oturumda tutulur. Yenileme veya çıkışta kaybolabilir. Fotoğraf yükleme henüz açık değildir.')
+st.caption('Yanıtlar yalnızca bu oturumda tutulur. Yenileme veya çıkışta kaybolabilir.')

@@ -22,23 +22,23 @@ class Tests(unittest.TestCase):
  def test_all_cases_feedback(self):
   a=login(app())
   for k in CASES:
-   a.selectbox[0].select(k).run();a.radio[0].set_value(CASES[k]['answer']);a.button[1].click().run()
+   a.selectbox[0].select(k).run();a.radio[1].set_value(CASES[k]['answer']);a.button[1].click().run()
    self.assertFalse(a.exception);self.assertTrue(a.success)
   self.assertEqual(len(a.session_state['answers']),5)
  def test_rate_feedback_separate(self):
   a=login(app());a.selectbox[0].select('variable').run()
-  a.radio[0].set_value(CASES['variable']['answer']);a.number_input[0].set_value(80)
+  a.radio[1].set_value(CASES['variable']['answer']);a.number_input[0].set_value(80)
   a.button[1].click().run()
   self.assertFalse(a.exception)
   text=' '.join(x.value for x in a.markdown)
   self.assertIn('Tahmininiz: 80 /dk',text);self.assertIn('64.6 /dk',text);self.assertIn('+15.4 /dk',text)
  def test_zero_rate_unanswered(self):
-  a=login(app());a.radio[0].set_value('Düzenli');a.button[1].click().run()
+  a=login(app());a.radio[1].set_value('Düzenli');a.button[1].click().run()
   self.assertFalse(a.exception)
   self.assertTrue(any('Hız tahmini yanıtlanmadı' in x.value for x in a.warning))
  def test_noise_uncertainty_and_resubmit(self):
   a=login(app());a.selectbox[0].select('noise').run()
-  a.radio[0].set_value(CASES['noise']['answer']);a.number_input[0].set_value(80)
+  a.radio[1].set_value(CASES['noise']['answer']);a.number_input[0].set_value(80)
   a.checkbox[0].check();a.button[1].click().run()
   self.assertFalse(a.exception);self.assertIsNone(a.session_state['answers']['noise']['rate'])
   self.assertTrue(any('Sayısal tahmininiz değerlendirilmedi' in x.value for x in a.info))
@@ -46,7 +46,7 @@ class Tests(unittest.TestCase):
   self.assertFalse(a.exception);self.assertEqual(a.session_state['answers']['noise']['rate'],60)
   a.selectbox[0].select('regular60').run();self.assertEqual(len(a.checkbox),0)
  def test_isolation_and_logout(self):
-  a=login(app());a.radio[0].set_value('Düzenli');a.button[1].click().run()
+  a=login(app());a.radio[1].set_value('Düzenli');a.button[1].click().run()
   b=login(app())
   with self.assertRaises(KeyError): b.session_state['answers']
   a.button[0].click().run()
