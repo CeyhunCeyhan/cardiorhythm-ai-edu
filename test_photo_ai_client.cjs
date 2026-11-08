@@ -6,10 +6,12 @@ const elements={},fills=[],revoked=[],messages=[],listeners={};
 const parent={postMessage:m=>messages.push(m)};
 const ctx={drawImage(){},clearRect(){},fillRect(...args){fills.push(args)},translate(){},rotate(){}};
 function element(id){return elements[id]??=( {checked:false,disabled:true,hidden:true,value:id==='zoom'?'1':'',clientWidth:360,width:1,height:1,files:[],style:{},toDataURL:()=> 'data:image/png;base64,cGl4ZWxz',getContext:()=>ctx,getBoundingClientRect:()=>({left:0,top:0,width:360,height:180}),setPointerCapture(){},setAttribute(k,v){this[k]=v}});}
-const sandbox={document:{getElementById:element,createElement:()=>({width:1,height:1,getContext:()=>ctx})},window:{parent,addEventListener:(name,fn)=>{listeners[name]=fn}},crypto:{randomUUID:()=> '12345678-1234-1234-1234-123456789012'},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:x=>revoked.push(x)},Image:class{naturalWidth=1200;naturalHeight=600;async decode(){}},console};
+let resizeCallback;
+const sandbox={ResizeObserver:class{constructor(fn){resizeCallback=fn;}observe(){}},document:{body:{scrollHeight:2100},getElementById:element,createElement:()=>({width:1,height:1,getContext:()=>ctx})},window:{parent,addEventListener:(name,fn)=>{listeners[name]=fn}},crypto:{randomUUID:()=> '12345678-1234-1234-1234-123456789012'},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:x=>revoked.push(x)},Image:class{naturalWidth=1200;naturalHeight=600;async decode(){}},console};
 vm.createContext(sandbox);vm.runInContext(js,sandbox);
 async function upload(file){element('file').files=[file];await element('file').onchange();}
 (async()=>{
+ assert.equal(messages.find(m=>m.type==='streamlit:setFrameHeight').height,2124);sandbox.document.body.scrollHeight=3400;resizeCallback();assert.equal(messages.at(-1).height,3424);
  assert.match(html,/connect-src 'none'/);assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|WebSocket|localStorage|sessionStorage/);
  element('prepared').checked=true;element('prepared').onchange();assert.equal(element('file').disabled,false);
  await upload({type:'image/heic',size:20});assert.match(element('status').textContent,/JPEG/);assert.equal(element('workspace').hidden,true);

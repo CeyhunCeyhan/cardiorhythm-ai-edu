@@ -96,5 +96,8 @@ window.addEventListener('message',event=>{
  if(!enabled)$('aiStatus').textContent='AI bağlantısı henüz yapılandırılmadı.';
 });
 bridge('streamlit:componentReady',{apiVersion:1});
-bridge('streamlit:setFrameHeight',{height:1600});
+// Grow with the photo, consent controls and response; never clip the result.
+function resizeFrame(){bridge('streamlit:setFrameHeight',{height:Math.ceil(document.body.scrollHeight)+24});}
+new ResizeObserver(resizeFrame).observe(document.body);
+resizeFrame();
 </script></body></html>

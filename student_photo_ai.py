@@ -5,6 +5,7 @@ import json
 import threading
 import time
 import urllib.request
+import urllib.error
 import warnings
 from pathlib import Path
 from PIL import Image
@@ -99,6 +100,15 @@ def render(st):
             try:
                 with st.spinner('Deneysel eğitim yorumu hazırlanıyor…'):
                     message=interpret(event.get('image'),config['api_key'],config['model'])
+            except urllib.error.HTTPError as exc:
+                # Fixed messages only: never display API bodies, keys or images.
+                message={401:'API anahtarı kabul edilmedi. Eğitici test uygulamasının Secrets ayarını kontrol etmelidir.',
+                         403:'API erişim izni yok. Eğitici proje ve model izinlerini kontrol etmelidir.',
+                         429:'API kota veya hız sınırına ulaşıldı. Eğitici API kullanım ve bakiye durumunu kontrol etmelidir.',
+                         404:'Yapılandırılan API modeli bulunamadı veya erişilemiyor.'}.get(exc.code,
+                         'API isteği tamamlanamadı (HTTP '+str(exc.code)+'). Eğitici yapılandırmayı kontrol etmelidir.')
+            except (TimeoutError, urllib.error.URLError):
+                message='API bağlantısı kurulamadı veya zaman aşımına uğradı. Otomatik yeniden gönderim yapılmadı.'
             except Exception:
                 # Never expose exception payloads: they can include credentials/image data.
                 message='Yorum alınamadı. Görüntü biçimi, bağlantı veya API ayarlarını eğitici kontrol etmelidir. Otomatik yeniden gönderim yapılmadı.'
