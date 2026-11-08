@@ -46,6 +46,10 @@ if st.button('Çıkış yap'):
  reset_session();st.rerun()
 mode=st.radio('Çalışma alanı',['Sentetik alıştırmalar','EKG fotoğrafı inceleme'],horizontal=True,key='workspace_mode')
 if mode=='EKG fotoğrafı inceleme':
+ if st.secrets.get('photo_ai',{}).get('enabled') is True:
+  from student_photo_ai import render
+  render(st)
+  st.stop()
  from pathlib import Path
  import streamlit.components.v1 as components
  components.html(Path(__file__).with_name('student_photo.html').read_text(encoding='utf-8'),height=1250,scrolling=True)
