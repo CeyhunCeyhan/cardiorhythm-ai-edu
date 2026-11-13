@@ -20,7 +20,7 @@ class AITests(unittest.TestCase):
     def test_forged_student_event_never_calls_api(self):
         event={'id':'12345678-1234-1234-1234-123456789012','consent':True,'image':image()}
         st=SimpleNamespace(secrets={'photo_ai':{'enabled':True,'api_key':'test','model':'gpt-4.1'}},
-            session_state={'identity':{'username':'learner','role':'student'}},warning=Mock())
+            session_state={'identity':{'username':'learner','role':'student'}},warning=Mock(),caption=Mock())
         widget=Mock(return_value=event)
         with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
             render(st)
