@@ -27,6 +27,17 @@ class AITests(unittest.TestCase):
         api.assert_not_called()
         self.assertFalse(widget.call_args.kwargs['enabled'])
         st.warning.assert_called_once()
+    def test_admin_selection_requires_explicit_image_send(self):
+        config={'enabled':True,'api_key':'test','model':'gpt-4.1'}
+        st=SimpleNamespace(secrets={'photo_ai':config},session_state={'identity':{'username':'teacher','role':'admin'}},
+            caption=Mock(),info=Mock(),selectbox=Mock(return_value='gpt-6.1-sol'))
+        widget=Mock(return_value=None)
+        with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
+            render(st)
+        api.assert_not_called()
+        self.assertEqual(st.selectbox.call_args.args[1],['gpt-4.1','gpt-6.1-sol'])
+        self.assertEqual(widget.call_args.kwargs['key'],'photo_ai_widget_gpt-6.1-sol')
+        self.assertEqual(config['model'],'gpt-4.1')
     def test_metadata_removed(self):
         out=clean_image(image());im=Image.open(io.BytesIO(base64.b64decode(out.split(',')[1])))
         self.assertFalse(im.info);self.assertEqual(im.size,(20,20))
@@ -44,6 +55,18 @@ class AITests(unittest.TestCase):
             self.assertNotIn('synthetic-test',p['input'][0]['content'][1]['image_url'])
             return io.BytesIO(json.dumps(result).encode())
         self.assertEqual(interpret(image(),'secret','gpt-4.1',opener),'Eğitim taslağı')
+    def test_candidate_request_keeps_prompt_image_and_privacy(self):
+        def opener(req,timeout):
+            payload=json.loads(req.data)
+            self.assertEqual(payload['model'],'gpt-6.1-sol')
+            self.assertEqual(payload['reasoning'],{'effort':'high'})
+            self.assertEqual(payload['max_output_tokens'],6000)
+            self.assertEqual(timeout,120)
+            self.assertFalse(payload['store'])
+            self.assertNotIn('tools',payload)
+            self.assertEqual(payload['input'][0]['content'][1]['detail'],'high')
+            return io.BytesIO(b'{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"candidate"}]}]}')
+        self.assertEqual(interpret(image(),'test','gpt-6.1-sol',opener),'candidate')
     def test_incomplete_not_presented_as_report(self):
         with self.assertRaises(ValueError):
             interpret(image(),'s','m',lambda *a,**k:io.BytesIO(b'{"status":"incomplete"}'))

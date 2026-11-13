@@ -10,7 +10,7 @@ import warnings
 from pathlib import Path
 from PIL import Image
 
-REVIEW_REVISION = '2026-11-13-r2'
+REVIEW_REVISION = '2026-11-13-r3'
 
 PROMPT = '''Türkçe yanıt ver. Yalnızca kardiyoloji eğiticisinin doğrulayacağı deneysel
 EKG eğitim gözlemleri yaz; klinik rapor, kesin tanı veya tedavi önerisi verme.
@@ -79,9 +79,12 @@ def interpret(data, key, model, opener=urllib.request.urlopen):
     payload={'model':model,'store':False,'max_output_tokens':1800,'instructions':PROMPT,
              'input':[{'role':'user','content':[{'type':'input_text','text':'Bu kimliksiz EKG için eğitim taslağı hazırla.'},
                         {'type':'input_image','image_url':image,'detail':'high'}]}]}
+    if model == 'gpt-6.1-sol':
+        payload['reasoning']={'effort':'high'}
+        payload['max_output_tokens']=6000  # Includes internal reasoning; bounded per call.
     req=urllib.request.Request('https://api.openai.com/v1/responses',
          data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
-    with opener(req,timeout=60) as response:
+    with opener(req,timeout=120 if model=='gpt-6.1-sol' else 60) as response:
         result=json.loads(response.read(256000))
     if result.get('status')!='completed':raise ValueError('incomplete')
     parts=[]
@@ -97,14 +100,22 @@ def interpret(data, key, model, opener=urllib.request.urlopen):
 def render(st):
     import streamlit.components.v1 as components
     config=st.secrets.get('photo_ai',{})
-    st.caption('AI test sürümü: '+REVIEW_REVISION+' · Model: '+str(config.get('model','yapılandırılmadı')))
     identity=st.session_state.get('identity',{})
     instructor=isinstance(identity,dict) and identity.get('role')=='admin'
+    configured_model=str(config.get('model',''))
+    model=configured_model
+    if instructor:
+        options=list(dict.fromkeys([configured_model or 'gpt-4.1','gpt-6.1-sol']))
+        model=st.selectbox('Eğitici karşılaştırma modeli',options,key='photo_ai_model')
+        st.caption('Modeli fotoğraf seçmeden önce belirleyin. Her gönderim yalnızca seçili modele gider; otomatik karşılaştırma veya yeniden deneme yok.')
+        if model=='gpt-6.1-sol':
+            st.info('Deneysel karşılaştırma · Akıl yürütme: high · Yanıt bütçesi: en fazla 6000 token (akıl yürütme dahil). Görüntü/girdi ayrıca ücretlenir. Yanıt 2 dakikaya kadar sürebilir. EKG doğruluğu doğrulanmadı.')
+    st.caption('AI test sürümü: '+REVIEW_REVISION+' · Model: '+model)
     enabled=ai_allowed(config,identity)
     if not instructor:
         st.warning('AI yorumunda majör hatalar saptandı. Öğrenci erişimi kapalı; fotoğraf inceleme ve kendi yorumunuzu yazma kullanılabilir.')
     component=components.declare_component('cardiorhythm_photo_ai',path=str(Path(__file__).with_name('photo_ai_component')))
-    event=component(enabled=enabled,reply=st.session_state.get('photo_ai_reply'),key='photo_ai_widget',default=None)
+    event=component(enabled=enabled,reply=st.session_state.get('photo_ai_reply'),key='photo_ai_widget_'+model,default=None)
     if not instructor:
         st.session_state.pop('photo_ai_reply',None)
         return  # Reject forged component requests before any paid API call.
@@ -128,7 +139,7 @@ def render(st):
         else:
             try:
                 with st.spinner('Deneysel eğitim yorumu hazırlanıyor…'):
-                    message=interpret(event.get('image'),config['api_key'],config['model'])
+                    message=interpret(event.get('image'),config['api_key'],model)
             except urllib.error.HTTPError as exc:
                 # Fixed messages only: never display API bodies, keys or images.
                 message={401:'API anahtarı kabul edilmedi. Eğitici test uygulamasının Secrets ayarını kontrol etmelidir.',
@@ -141,7 +152,7 @@ def render(st):
             except Exception:
                 # Never expose exception payloads: they can include credentials/image data.
                 message='Yorum alınamadı. Görüntü biçimi, bağlantı veya API ayarlarını eğitici kontrol etmelidir. Otomatik yeniden gönderim yapılmadı.'
-    st.session_state.photo_ai_reply={'id':rid,'text':'[AI test sürümü: '+REVIEW_REVISION+']\n\n'+message}
+    st.session_state.photo_ai_reply={'id':rid,'text':'[AI test sürümü: '+REVIEW_REVISION+' · Model: '+model+']\n\n'+message}
     # Component ACK sets its value to null; no application image cache is created.
     event.clear()
     st.rerun()

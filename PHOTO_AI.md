@@ -83,3 +83,25 @@ and abstentions; repeat selected examples to assess variability. Any missed acut
 ischemic pattern or false wide-QRS interpretation blocks release. A small passing
 set is not clinical validation. Each pilot output needs clinician review.
 This clinical evaluation has NOT been run; the API key stays in Streamlit Secrets.
+
+
+## Instructor model comparison r3
+An admin-only selectbox now offers the configured baseline and gpt-6.1-sol.
+Baseline remains the default; no Secrets changes, new account or provider needed.
+The same prompt and high-detail image are sent to exactly ONE selected model on
+explicit consent/send. Switching model remounts the local viewer: select model
+before uploading. There is no automatic second call, fallback or retry.
+GPT-6.1 Sol uses reasoning.effort=high, max_output_tokens=6000 (including reasoning)
+and timeout=120s. Baseline request is unchanged. Incomplete responses still fail
+closed; a timeout does not prove the provider did not process/bill the request.
+The response and caption show prompt revision and selected model.
+
+Official model page lists image input and standard $2/1M input, $10/1M output.
+Reasoning tokens count toward output billing. A fully consumed 6000-token output
+budget costs $0.06 before image/input costs and tax. No per-ECG cost or accuracy
+claim has been measured for the candidate. Account access is not verified.
+Sources: https://developers.openai.com/api/docs/models/gpt-6.1-sol
+https://developers.openai.com/api/docs/guides/images-vision
+No new real API call was made during this change; private key is not available
+in this workspace. The instructor must compare the failed regression ECG and
+independent unseen cases before considering any student release.
