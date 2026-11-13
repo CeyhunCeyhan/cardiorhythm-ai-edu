@@ -56,3 +56,30 @@ No clinical accuracy evaluation was performed. No paid API call performed.
 
 Docs: https://developers.openai.com/api/docs/guides/images-vision
 https://developers.openai.com/api/docs/guides/your-data
+
+
+## Clinical pilot hold — 2026-11-13
+The first real API response arrived on iPhone. The instructor identified major
+errors: inferior ST-elevation MI with anterior reciprocal changes was described
+as anterior ST elevation and wide-complex tachycardia. This instructor reference
+is not an independently adjudicated study label. No patient image is committed.
+The second conversational interpretation also missed the inferior STEMI pattern;
+another LLM answer must not serve as the reference standard.
+
+AI now requires authenticated role=admin on the widget AND server request path.
+Student/resident accounts retain local photo review and their own notes. This is
+the existing app users Secrets role, not GitHub/OpenAI Owner. No Secrets changed.
+
+Revised instructions request visible calibration only, QRS/ST-T separation,
+lead-by-lead ST observations, regional/reciprocal consistency and uncertainty.
+This prompt revision is NOT a demonstrated accuracy improvement. No model switch,
+extra calls or second-pass model verifier was added.
+
+Before student release, compare against instructor-labelled independent examples:
+inferior/anterior STEMI, reciprocal changes, narrow/wide complexes, normal ECGs,
+and poor photos. Keep this failed case for regression and reserve unseen cases.
+Record missed findings, false positives, localization errors, invented calibration
+and abstentions; repeat selected examples to assess variability. Any missed acute
+ischemic pattern or false wide-QRS interpretation blocks release. A small passing
+set is not clinical validation. Each pilot output needs clinician review.
+This clinical evaluation has NOT been run; the API key stays in Streamlit Secrets.

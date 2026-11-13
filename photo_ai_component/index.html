@@ -97,7 +97,7 @@ window.addEventListener('message',event=>{
  const reply=args.reply;
  if(reply&&reply.id===requestId&&busy){busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
  $('aiSend').disabled=!enabled||busy||!$('aiConsent').checked;
- if(!enabled)$('aiStatus').textContent='AI bağlantısı henüz yapılandırılmadı.';
+ if(!enabled)$('aiStatus').textContent='AI yorumu öğrencilere kapalıdır; eğitici test erişimi veya API yapılandırması etkin değil.';
 });
 bridge('streamlit:componentReady',{apiVersion:1});
 // Grow with the photo, consent controls and response; never clip the result.

@@ -1,7 +1,8 @@
 import base64,io,json,unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
+from types import SimpleNamespace
 from PIL import Image,PngImagePlugin
-from student_photo_ai import Budget,clean_image,interpret
+from student_photo_ai import Budget,clean_image,interpret,ai_allowed,render
 
 def image():
     b=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('patient','synthetic-test')
@@ -9,6 +10,23 @@ def image():
     return 'data:image/png;base64,'+base64.b64encode(b.getvalue()).decode()
 
 class AITests(unittest.TestCase):
+    def test_only_admin_can_enable_ai(self):
+        config={'enabled':True,'api_key':'test','model':'gpt-4.1'}
+        for identity in [None,{}, {'role':'student'}, {'role':'resident'}, {'role':'owner'}]:
+            self.assertFalse(ai_allowed(config,identity))
+        self.assertTrue(ai_allowed(config,{'role':'admin'}))
+        for key,value in [('enabled',False),('api_key',''),('model','')]:
+            self.assertFalse(ai_allowed(dict(config,**{key:value}),{'role':'admin'}))
+    def test_forged_student_event_never_calls_api(self):
+        event={'id':'12345678-1234-1234-1234-123456789012','consent':True,'image':image()}
+        st=SimpleNamespace(secrets={'photo_ai':{'enabled':True,'api_key':'test','model':'gpt-4.1'}},
+            session_state={'identity':{'username':'learner','role':'student'}},warning=Mock())
+        widget=Mock(return_value=event)
+        with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
+            render(st)
+        api.assert_not_called()
+        self.assertFalse(widget.call_args.kwargs['enabled'])
+        st.warning.assert_called_once()
     def test_metadata_removed(self):
         out=clean_image(image());im=Image.open(io.BytesIO(base64.b64decode(out.split(',')[1])))
         self.assertFalse(im.info);self.assertEqual(im.size,(20,20))
