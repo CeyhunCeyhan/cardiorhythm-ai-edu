@@ -11,6 +11,7 @@ body{font:16px system-ui;color:#17324d;margin:8px}button,select,input,textarea{f
 <h3>12 derivasyonlu EKG fotoğrafı inceleme</h3>
 <p class="note">İnceleme tarayıcıda yapılır. Yalnızca “AI eğitim yorumu iste” düğmesine bastığınızda onayladığınız görüntü uygulama sunucusu üzerinden OpenAI’ye gönderilir. Kimliksizleştirme otomatik değildir; otomatik ölçüm yapılmaz.</p>
 <p>Çekimden önce ad-soyad, doğum tarihi, protokol numarası, barkod/QR ve diğer tanımlayıcıları fiziksel olarak kapatın veya telefonunuzda kırpın. Tüm 12 derivasyonu ve basılı hız/kazanç bilgisini koruyun. Ekran boyutu ölçüm kalibrasyonu değildir.</p>
+<div id="probeBox" hidden><button id="probe" type="button">Bağlantıyı test et</button><span id="probeStatus" role="status"></span></div>
 <label><input id="prepared" type="checkbox"> Fotoğrafı önceden kimliksizleştirdim; eğitim amaçlı kullanımına izin var.</label>
 <label>Telefondan fotoğraf seç (JPEG / PNG / WebP, en fazla 15 MB):<br><input id="file" type="file" accept="image/jpeg,image/png,image/webp" disabled></label>
 <p>HEIC açılmazsa telefonda JPEG olarak dışa aktarın. Yeni servis veya dönüştürme sitesine göndermeyin.</p>
@@ -81,6 +82,13 @@ $('zoom').onchange=()=>setTool('pan');window.addEventListener('resize',()=>{if(p
 // Only an explicit send returns flattened pixels to the authenticated Python app.
 let parentOrigin=null, enabled=false, requestId=null, busy=false;
 function bridge(type, data={}){window.parent.postMessage({isStreamlitMessage:true,type,...data},parentOrigin||'*');}
+let probeId=null, probeTimer=null;
+$('probe').onclick=()=>{
+ if(!parentOrigin||$('probeBox').hidden||busy||probeId||phase!=='empty')return;
+ probeId=crypto.randomUUID();$('probe').disabled=true;$('probeStatus').textContent='Sunucu yanıtı bekleniyor…';
+ probeTimer=setTimeout(()=>{probeId=null;$('probe').disabled=false;$('probeStatus').textContent='15 saniye içinde yanıt alınmadı.';},15000);
+ bridge('streamlit:setComponentValue',{value:{type:'ping',id:probeId},dataType:'json'});
+};
 let waitTimer=null;
 function stopWaitTimer(){clearTimeout(waitTimer);waitTimer=null;}
 function resetAI(){stopWaitTimer();requestId=null;busy=false;$('aiConsent').checked=false;$('aiSend').disabled=true;$('aiResult').textContent='';$('aiStatus').textContent='';if(parentOrigin)bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
@@ -100,6 +108,9 @@ window.addEventListener('message',event=>{
  if(event.source!==window.parent||event.data?.type!=='streamlit:render')return;
  if(parentOrigin&&event.origin!==parentOrigin)return;
  parentOrigin=event.origin;const args=event.data.args||{};enabled=args.enabled===true;
+ $('probeBox').hidden=args.instructor!==true||phase!=='empty';
+ $('probe').disabled=!!probeId;
+ if(probeId&&args.pong===probeId){clearTimeout(probeTimer);probeId=null;$('probe').disabled=false;$('probeStatus').textContent='Bağlantı başarılı.';}
  const reply=args.reply;
  if(reply&&reply.id===requestId&&busy){stopWaitTimer();busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:{type:'ack',id:requestId},dataType:'json'});}
  $('aiSend').disabled=!enabled||busy||!$('aiConsent').checked;

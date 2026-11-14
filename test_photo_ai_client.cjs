@@ -45,5 +45,9 @@ async function upload(file){element('file').files=[file];await element('file').o
  element('zoom').value='4';element('zoom').onchange();assert.equal(element('canvas').style.width,'1440px');
  element('comment').value='education test';element('clear').onclick();assert.equal(element('aiResult').textContent,'');assert.equal(element('comment').value,'');assert.equal(element('canvas').width,1);assert.equal(element('workspace').hidden,true);
  await upload({type:'image/png',size:100});element('prepared').checked=false;element('prepared').onchange();assert.equal(element('file').disabled,true);assert.equal(element('workspace').hidden,true);
+ render({instructor:true});element('probe').onclick();
+ const ping=JSON.parse(JSON.stringify(messages.at(-1).value));assert.deepEqual(ping,{type:'ping',id:'12345678-1234-1234-1234-123456789012'});
+ render({instructor:true,pong:'stale'});assert.match(element('probeStatus').textContent,/bekleniyor/);
+ render({instructor:true,pong:ping.id});assert.match(element('probeStatus').textContent,/başarılı/);
  console.log('PASS: CSP/no network-storage APIs, consent gate, format/size rejection, local decode/revoke, review gate, masking, rotation, zoom, clear, consent withdrawal plus default pan, checkbox-only pan, explicit masking, automatic pan return, manual pan and post-confirm masking lock checks.');
 })().catch(e=>{console.error(e);process.exit(1)});

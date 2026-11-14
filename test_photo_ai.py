@@ -49,6 +49,17 @@ class AITests(unittest.TestCase):
         log.assert_called_once_with('photo_ai','testtrace','client_received',flush=True)
         self.assertNotIn('photo_ai_reply',state)
 
+    def test_free_probe_round_trip(self):
+        state={'identity':{'role':'admin'}}
+        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),selectbox=Mock(return_value='test'),rerun=Mock())
+        nonce='abcd'*9
+        widget=Mock(return_value={'type':'ping','id':nonce})
+        with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
+            render(st);render(st)
+        self.assertEqual(widget.call_args.kwargs['pong'],nonce)
+        st.rerun.assert_called_once()
+        api.assert_not_called()
+
     def test_metadata_removed(self):
         out=clean_image(image());im=Image.open(io.BytesIO(base64.b64decode(out.split(',')[1])))
         self.assertFalse(im.info);self.assertEqual(im.size,(20,20))

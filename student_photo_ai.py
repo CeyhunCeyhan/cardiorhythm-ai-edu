@@ -116,12 +116,18 @@ def render(st):
     if not instructor:
         st.warning('AI yorumunda majör hatalar saptandı. Öğrenci erişimi kapalı; fotoğraf inceleme ve kendi yorumunuzu yazma kullanılabilir.')
     component=components.declare_component('cardiorhythm_photo_ai',path=str(Path(__file__).with_name('photo_ai_component')))
-    event=component(enabled=enabled,reply=st.session_state.get('photo_ai_reply'),key='photo_ai_widget_'+model,default=None)
+    event=component(instructor=instructor,pong=st.session_state.get("photo_probe") if instructor else None,enabled=enabled,reply=st.session_state.get('photo_ai_reply'),key='photo_ai_widget_'+model,default=None)
     if not instructor:
         st.session_state.pop('photo_ai_reply',None)
         return  # Reject forged component requests before any paid API call.
     if not isinstance(event,dict):
         st.session_state.pop('photo_ai_reply',None)
+        return
+    if event.get('type')=='ping':
+        nonce=event.get('id')
+        if isinstance(nonce,str) and len(nonce)==36 and nonce!=st.session_state.get('photo_probe'):
+            st.session_state['photo_probe']=nonce
+            st.rerun()
         return
     if event.get('type')=='ack':
         reply=st.session_state.get('photo_ai_reply')
