@@ -81,13 +81,19 @@ $('zoom').onchange=()=>setTool('pan');window.addEventListener('resize',()=>{if(p
 // Only an explicit send returns flattened pixels to the authenticated Python app.
 let parentOrigin=null, enabled=false, requestId=null, busy=false;
 function bridge(type, data={}){window.parent.postMessage({isStreamlitMessage:true,type,...data},parentOrigin||'*');}
-function resetAI(){requestId=null;busy=false;$('aiConsent').checked=false;$('aiSend').disabled=true;$('aiResult').textContent='';$('aiStatus').textContent='';if(parentOrigin)bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
+let waitTimer=null;
+function stopWaitTimer(){clearTimeout(waitTimer);waitTimer=null;}
+function resetAI(){stopWaitTimer();requestId=null;busy=false;$('aiConsent').checked=false;$('aiSend').disabled=true;$('aiResult').textContent='';$('aiStatus').textContent='';if(parentOrigin)bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
 $('aiConsent').onchange=()=>{$('aiSend').disabled=!enabled||busy||!$('aiConsent').checked;};
 $('aiSend').onclick=()=>{
  if(phase!=='view'||!enabled||busy||!$('aiConsent').checked||!parentOrigin)return;
  const data=canvas.toDataURL('image/png');
  if(data.length>22*1024*1024){$('aiStatus').textContent='Görüntü gönderim için çok büyük; daha küçük bir fotoğraf kullanın.';return;}
  requestId=crypto.randomUUID();busy=true;$('aiSend').disabled=true;$('aiResult').textContent='';$('aiStatus').textContent='Eğitim yorumu hazırlanıyor…';
+ const waitingFor=requestId;
+ waitTimer=setTimeout(()=>{
+   if(busy&&requestId===waitingFor)$('aiStatus').textContent='Yanıt henüz ulaşmadı. Tekrar göndermeniz gerekmiyor.';
+ },120000);
  bridge('streamlit:setComponentValue',{value:{id:requestId,image:data,consent:true},dataType:'json'});
 };
 window.addEventListener('message',event=>{
@@ -95,7 +101,7 @@ window.addEventListener('message',event=>{
  if(parentOrigin&&event.origin!==parentOrigin)return;
  parentOrigin=event.origin;const args=event.data.args||{};enabled=args.enabled===true;
  const reply=args.reply;
- if(reply&&reply.id===requestId&&busy){busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
+ if(reply&&reply.id===requestId&&busy){stopWaitTimer();busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
  $('aiSend').disabled=!enabled||busy||!$('aiConsent').checked;
  if(!enabled)$('aiStatus').textContent='AI yorumu öğrencilere kapalıdır; eğitici test erişimi veya API yapılandırması etkin değil.';
 });

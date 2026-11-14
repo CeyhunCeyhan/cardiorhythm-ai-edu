@@ -7,7 +7,8 @@ const parent={postMessage:m=>messages.push(m)};
 const ctx={drawImage(){},clearRect(){},fillRect(...args){fills.push(args)},translate(){},rotate(){}};
 function element(id){return elements[id]??=( {checked:false,disabled:true,hidden:true,value:id==='zoom'?'1':'',clientWidth:360,width:1,height:1,files:[],style:{},toDataURL:()=> 'data:image/png;base64,cGl4ZWxz',getContext:()=>ctx,getBoundingClientRect:()=>({left:0,top:0,width:360,height:180}),setPointerCapture(){},setAttribute(k,v){this[k]=v}});}
 let resizeCallback;
-const sandbox={ResizeObserver:class{constructor(fn){resizeCallback=fn;}observe(){}},document:{body:{scrollHeight:2100},getElementById:element,createElement:()=>({width:1,height:1,getContext:()=>ctx})},window:{parent,addEventListener:(name,fn)=>{listeners[name]=fn}},crypto:{randomUUID:()=> '12345678-1234-1234-1234-123456789012'},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:x=>revoked.push(x)},Image:class{naturalWidth=1200;naturalHeight=600;async decode(){}},console};
+const timers=new Map();let timerId=0;
+const sandbox={setTimeout(fn,ms){timers.set(++timerId,{fn,ms});return timerId;},clearTimeout(id){timers.delete(id);},ResizeObserver:class{constructor(fn){resizeCallback=fn;}observe(){}},document:{body:{scrollHeight:2100},getElementById:element,createElement:()=>({width:1,height:1,getContext:()=>ctx})},window:{parent,addEventListener:(name,fn)=>{listeners[name]=fn}},crypto:{randomUUID:()=> '12345678-1234-1234-1234-123456789012'},URL:{createObjectURL:()=> 'blob:test',revokeObjectURL:x=>revoked.push(x)},Image:class{naturalWidth=1200;naturalHeight=600;async decode(){}},console};
 vm.createContext(sandbox);vm.runInContext(js,sandbox);
 async function upload(file){element('file').files=[file];await element('file').onchange();}
 (async()=>{
@@ -31,7 +32,14 @@ async function upload(file){element('file').files=[file];await element('file').o
  element('aiConsent').checked=true;element('aiConsent').onchange();element('aiSend').onclick();element('aiSend').onclick();
  assert.equal(messages.filter(m=>m.value?.image).length,1);assert.equal(messages.find(m=>m.value?.image).value.consent,true);
  render({enabled:true,reply:{id:'wrong-id',text:'stale'}});assert.notEqual(element('aiResult').textContent,'stale');
+ assert.equal(timers.size,1);const timer=[...timers.values()][0];assert.equal(timer.ms,120000);
+ element('comment').value='eğitici notu';const width=element('canvas').width;
+ timer.fn();assert.match(element('aiStatus').textContent,/Yanıt henüz ulaşmadı/);
+ assert.equal(element('aiSend').disabled,true);element('aiSend').onclick();
+ assert.equal(messages.filter(m=>m.value?.image).length,1);
+ assert.equal(element('comment').value,'eğitici notu');assert.equal(element('canvas').width,width);
  render({enabled:true,reply:{id:'12345678-1234-1234-1234-123456789012',text:'<script>untrusted</script>'}});
+ assert.equal(timers.size,0);assert.match(element('aiStatus').textContent,/taslak/);
  assert.equal(element('aiResult').textContent,'<script>untrusted</script>');assert.equal(messages.at(-1).value,null);
  element('rotate').onclick();assert.equal(element('canvas').width,600);assert.equal(element('canvas').height,1200);
  element('zoom').value='4';element('zoom').onchange();assert.equal(element('canvas').style.width,'1440px');
