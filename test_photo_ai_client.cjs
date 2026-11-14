@@ -40,7 +40,7 @@ async function upload(file){element('file').files=[file];await element('file').o
  assert.equal(element('comment').value,'eğitici notu');assert.equal(element('canvas').width,width);
  render({enabled:true,reply:{id:'12345678-1234-1234-1234-123456789012',text:'<script>untrusted</script>'}});
  assert.equal(timers.size,0);assert.match(element('aiStatus').textContent,/taslak/);
- assert.equal(element('aiResult').textContent,'<script>untrusted</script>');assert.equal(messages.at(-1).value,null);
+ assert.equal(element('aiResult').textContent,'<script>untrusted</script>');assert.deepEqual(JSON.parse(JSON.stringify(messages.at(-1).value)),{type:'ack',id:'12345678-1234-1234-1234-123456789012'});
  element('rotate').onclick();assert.equal(element('canvas').width,600);assert.equal(element('canvas').height,1200);
  element('zoom').value='4';element('zoom').onchange();assert.equal(element('canvas').style.width,'1440px');
  element('comment').value='education test';element('clear').onclick();assert.equal(element('aiResult').textContent,'');assert.equal(element('comment').value,'');assert.equal(element('canvas').width,1);assert.equal(element('workspace').hidden,true);

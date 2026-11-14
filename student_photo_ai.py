@@ -1,7 +1,8 @@
-"""Opt-in educational image feedback. No image files, logging or automatic retries."""
+"""Opt-in educational image feedback. No image files, content logging or automatic retries."""
 import base64
 import io
 import json
+import secrets
 import threading
 import time
 import urllib.request
@@ -122,12 +123,21 @@ def render(st):
     if not isinstance(event,dict):
         st.session_state.pop('photo_ai_reply',None)
         return
+    if event.get('type')=='ack':
+        reply=st.session_state.get('photo_ai_reply')
+        if reply and reply['id']==event.get('id'):
+            print('photo_ai',reply['trace'],'client_received',flush=True)
+            st.session_state.pop('photo_ai_reply',None)
+        return
     rid=event.get('id')
     if not isinstance(rid,str) or len(rid)!=36:return
     seen=st.session_state.setdefault('photo_ai_seen',[])
     if rid in seen:return
     over_limit=len(seen)>=100
     if not over_limit:seen.append(rid)
+    trace=secrets.token_hex(6)
+    print('photo_ai',trace,'server_received',flush=True)
+    outcome='not_sent'
     if over_limit:
         message='Oturum istek sınırına ulaştınız. Eğiticinize başvurun.'
     elif not enabled or event.get('consent') is not True:
@@ -140,7 +150,9 @@ def render(st):
             try:
                 with st.spinner('Deneysel eğitim yorumu hazırlanıyor…'):
                     message=interpret(event.get('image'),config['api_key'],model)
+                    outcome='api_reply'
             except urllib.error.HTTPError as exc:
+                outcome=f'http_{int(exc.code)}'
                 # Fixed messages only: never display API bodies, keys or images.
                 message={401:'API anahtarı kabul edilmedi. Eğitici test uygulamasının Secrets ayarını kontrol etmelidir.',
                          403:'API erişim izni yok. Eğitici proje ve model izinlerini kontrol etmelidir.',
@@ -148,11 +160,14 @@ def render(st):
                          404:'Yapılandırılan API modeli bulunamadı veya erişilemiyor.'}.get(exc.code,
                          'API isteği tamamlanamadı (HTTP '+str(exc.code)+'). Eğitici yapılandırmayı kontrol etmelidir.')
             except (TimeoutError, urllib.error.URLError):
+                outcome='connection_or_timeout'
                 message='API bağlantısı kurulamadı veya zaman aşımına uğradı. Otomatik yeniden gönderim yapılmadı.'
             except Exception:
+                outcome='processing_error'
                 # Never expose exception payloads: they can include credentials/image data.
                 message='Yorum alınamadı. Görüntü biçimi, bağlantı veya API ayarlarını eğitici kontrol etmelidir. Otomatik yeniden gönderim yapılmadı.'
-    st.session_state.photo_ai_reply={'id':rid,'text':'[AI test sürümü: '+REVIEW_REVISION+' · Model: '+model+']\n\n'+message}
-    # Component ACK sets its value to null; no application image cache is created.
+    print('photo_ai',trace,outcome,flush=True)
+    st.session_state.photo_ai_reply={'trace':trace,'id':rid,'text':'[AI test sürümü: '+REVIEW_REVISION+' · Model: '+model+']\n\n'+message}
+    # Component ACK replaces pixels with a receipt; no application image cache is created.
     event.clear()
     st.rerun()

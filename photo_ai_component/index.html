@@ -101,7 +101,7 @@ window.addEventListener('message',event=>{
  if(parentOrigin&&event.origin!==parentOrigin)return;
  parentOrigin=event.origin;const args=event.data.args||{};enabled=args.enabled===true;
  const reply=args.reply;
- if(reply&&reply.id===requestId&&busy){stopWaitTimer();busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:null,dataType:'json'});}
+ if(reply&&reply.id===requestId&&busy){stopWaitTimer();busy=false;$('aiStatus').textContent='Eğitici incelemesi gereken deneysel taslak';$('aiResult').textContent=reply.text;bridge('streamlit:setComponentValue',{value:{type:'ack',id:requestId},dataType:'json'});}
  $('aiSend').disabled=!enabled||busy||!$('aiConsent').checked;
  if(!enabled)$('aiStatus').textContent='AI yorumu öğrencilere kapalıdır; eğitici test erişimi veya API yapılandırması etkin değil.';
 });

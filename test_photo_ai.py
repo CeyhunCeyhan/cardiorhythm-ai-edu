@@ -38,6 +38,17 @@ class AITests(unittest.TestCase):
         self.assertEqual(st.selectbox.call_args.args[1],['gpt-4.1','gpt-6.1-sol'])
         self.assertEqual(widget.call_args.kwargs['key'],'photo_ai_widget_gpt-6.1-sol')
         self.assertEqual(config['model'],'gpt-4.1')
+    def test_receipt_requires_matching_reply_and_never_resends(self):
+        rid='12345678-1234-1234-1234-123456789012'
+        state={'identity':{'role':'admin'},'photo_ai_reply':{'id':rid,'trace':'testtrace','text':'private'}}
+        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),selectbox=Mock(return_value='test'))
+        events=[{'type':'ack','id':v} for v in ['other',rid,rid]]
+        with patch('streamlit.components.v1.declare_component',return_value=Mock(side_effect=events)), patch('student_photo_ai.interpret') as api, patch('builtins.print') as log:
+            for _ in events: render(st)
+        api.assert_not_called()
+        log.assert_called_once_with('photo_ai','testtrace','client_received',flush=True)
+        self.assertNotIn('photo_ai_reply',state)
+
     def test_metadata_removed(self):
         out=clean_image(image());im=Image.open(io.BytesIO(base64.b64decode(out.split(',')[1])))
         self.assertFalse(im.info);self.assertEqual(im.size,(20,20))
