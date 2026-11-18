@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 import base64,io,json,unittest
 from unittest.mock import Mock,patch
 from types import SimpleNamespace
@@ -30,7 +31,7 @@ class AITests(unittest.TestCase):
     def test_admin_selection_requires_explicit_image_send(self):
         config={'enabled':True,'api_key':'test','model':'gpt-4.1'}
         st=SimpleNamespace(secrets={'photo_ai':config},session_state={'identity':{'username':'teacher','role':'admin'}},
-            caption=Mock(),info=Mock(),selectbox=Mock(return_value='gpt-6.1-sol'))
+            caption=Mock(),info=Mock(),expander=lambda *_: nullcontext(),selectbox=Mock(return_value='gpt-6.1-sol'))
         widget=Mock(return_value=None)
         with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
             render(st)
@@ -41,7 +42,7 @@ class AITests(unittest.TestCase):
     def test_receipt_requires_matching_reply_and_never_resends(self):
         rid='12345678-1234-1234-1234-123456789012'
         state={'identity':{'role':'admin'},'photo_ai_reply':{'id':rid,'trace':'testtrace','text':'private'}}
-        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),selectbox=Mock(return_value='test'))
+        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),expander=lambda *_: nullcontext(),selectbox=Mock(return_value='test'))
         events=[{'type':'ack','id':v} for v in ['other',rid,rid]]
         with patch('streamlit.components.v1.declare_component',return_value=Mock(side_effect=events)), patch('student_photo_ai.interpret') as api, patch('builtins.print') as log:
             for _ in events: render(st)
@@ -51,7 +52,7 @@ class AITests(unittest.TestCase):
 
     def test_free_probe_round_trip(self):
         state={'identity':{'role':'admin'}}
-        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),selectbox=Mock(return_value='test'),rerun=Mock())
+        st=SimpleNamespace(secrets={},session_state=state,caption=Mock(),expander=lambda *_: nullcontext(),selectbox=Mock(return_value='test'),rerun=Mock())
         nonce='abcd'*9
         widget=Mock(return_value={'type':'ping','id':nonce})
         with patch('streamlit.components.v1.declare_component',return_value=widget), patch('student_photo_ai.interpret') as api:
