@@ -122,7 +122,28 @@ if is_admin:
     picture.verify()
     picture = Image.open(io.BytesIO(uploaded_ecg.getvalue()))
     picture = ImageOps.exif_transpose(picture).convert('RGB')
-    st.image(picture, caption='Yüklenen eğitim EKG görseli', use_container_width=True)
+    st.markdown('**Görüntü inceleme araçları**')
+    rotate_left, rotate_right, reset_view = st.columns(3)
+    if rotate_left.button('↶ Sola 90°', use_container_width=True):
+     st.session_state.ecg_rotation = (st.session_state.get('ecg_rotation', 0) + 90) % 360
+    if rotate_right.button('↷ Sağa 90°', use_container_width=True):
+     st.session_state.ecg_rotation = (st.session_state.get('ecg_rotation', 0) - 90) % 360
+    if reset_view.button('Sıfırla', use_container_width=True):
+     st.session_state.ecg_rotation = 0
+     st.session_state.ecg_zoom = 1.0
+     st.session_state.ecg_pan_x = 50
+     st.session_state.ecg_pan_y = 50
+    picture = picture.rotate(st.session_state.get('ecg_rotation', 0), expand=True)
+    zoom = st.slider('Büyütme', min_value=1.0, max_value=4.0, value=1.0, step=0.25, key='ecg_zoom')
+    if zoom > 1:
+     pan_x = st.slider('Yatay konum (%)', 0, 100, 50, key='ecg_pan_x')
+     pan_y = st.slider('Dikey konum (%)', 0, 100, 50, key='ecg_pan_y')
+     width, height = picture.size
+     crop_w, crop_h = max(1, round(width / zoom)), max(1, round(height / zoom))
+     left = round((width - crop_w) * pan_x / 100)
+     top = round((height - crop_h) * pan_y / 100)
+     picture = picture.crop((left, top, left + crop_w, top + crop_h))
+    st.image(picture, caption='Eğitim EKG görseli · döndürme ve yakınlaştırma önizlemesi', use_container_width=True)
     st.info('Görsel yalnızca bu oturumda önizlenir. Otomatik analiz ve eğitici onayı henüz etkin değildir.')
    except (OSError, ValueError):
     st.error('Görsel açılamadı. Geçerli bir PNG veya JPEG dosyası seçin.')
