@@ -100,4 +100,33 @@ answers=st.session_state.get('answers',{})
 st.progress(len(set(answers)&set(available))/len(available),text=f'{len(set(answers)&set(available))}/{len(available)} alıştırma yanıtlandı')
 if answers:
  st.download_button('Yanıtlarımı indir',json.dumps(answers,ensure_ascii=False,indent=2),'yanitlarim.json','application/json')
-st.caption('Yanıtlar yalnızca bu oturumda tutulur. Yenileme veya çıkışta kaybolabilir. Fotoğraf yükleme henüz açık değildir.')
+st.divider()
+st.subheader('EKG fotoğrafı · Eğitici önizlemesi')
+st.caption('Bu bölüm yalnızca görüntü yükleme ve görsel kontrol içindir; otomatik EKG yorumu yapmaz.')
+if is_admin:
+ uploaded_ecg = st.file_uploader(
+  'Sentetik veya kimliksizleştirilmiş eğitim EKG görseli seç',
+  type=['png', 'jpg', 'jpeg'],
+  accept_multiple_files=False,
+  key='training_ecg_photo',
+  help='En fazla 5 MB. Hasta adı, tarih, barkod veya diğer tanımlayıcı bilgiler içermemelidir.'
+ )
+ if uploaded_ecg is not None:
+  if uploaded_ecg.size > 5 * 1024 * 1024:
+   st.error('Dosya 5 MB sınırını aşıyor. Daha küçük bir görsel seçin.')
+  else:
+   try:
+    from PIL import Image, ImageOps
+    import io
+    picture = Image.open(io.BytesIO(uploaded_ecg.getvalue()))
+    picture.verify()
+    picture = Image.open(io.BytesIO(uploaded_ecg.getvalue()))
+    picture = ImageOps.exif_transpose(picture).convert('RGB')
+    st.image(picture, caption='Yüklenen eğitim EKG görseli', use_container_width=True)
+    st.info('Görsel yalnızca bu oturumda önizlenir. Otomatik analiz ve eğitici onayı henüz etkin değildir.')
+   except (OSError, ValueError):
+    st.error('Görsel açılamadı. Geçerli bir PNG veya JPEG dosyası seçin.')
+else:
+ st.info('Fotoğraf yükleme önce eğitici tarafından test ediliyor. Öğrenci erişimi henüz açılmadı.')
+st.caption('Yanıtlar yalnızca bu oturumda tutulur. Yenileme veya çıkışta kaybolabilir.')
+
